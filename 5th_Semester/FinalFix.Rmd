@@ -1,0 +1,215 @@
+---
+title: "Dashboard Bisnis Analitik"
+author: "Sakaoni Rofi P dan Haiva Qurrota A"
+output: 
+  flexdashboard::flex_dashboard:
+    runtime: shiny
+    theme: spacelab
+    orientation: rows
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(flexdashboard)
+library(DT)
+library(shinythemes)
+library(factoextra)
+library(ggplot2)
+library(cluster)
+library(shiny)
+
+Data0<- read.csv("C:/Users/USER/Downloads/dataEAS.csv")
+Data1<- read.csv("C:/Users/USER/Downloads/datafinal.csv")
+
+film <- Data0$Titles
+genre <- Data0$Genre
+runtime <- Data0$Runtime
+rating <- Data0$Rating
+votes <- Data0$Votes
+cluster<-as.factor(Data1$clustering.cluster)
+data0=data.frame(film,genre,runtime,rating,votes)
+Analisis <- data.frame(runtime,rating,votes)
+```
+
+Pengantar
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### **IMDb**
+**IMDb** adalah sebuah basis data daring informasi yang berkaitan dengan film, acara televisi, video rumahan, permainan video, acara internet, termasuk juga daftar pemeran, biografi kru produksi dan personil, ringkasan alur cerita, trivia, dan ulasan serta penilaian oleh penggemar. Situs web ini sekarang dimiliki oleh Amazon.com. Koleksi informasi film yang ditampilkan cukup lengkap dan dapat juga dilihat informasi film lama maupun film baru yang akan rilis di bioskop. Dalam IMDb terdapat komunitas yang dapat berkontribusi langsung untuk menuangkan ulasan film dan memberikan rating pada film yang diinginkan. Tidak hanya kaum awam, para pakar juga memiliki wadah sendiri untuk memberi rating dan menuangkan ulasan secara profesional pada film tersebut.
+
+### Tujuan Penelitian
+Pada kali ini kami akan mencoba mengclusterkan film dengan K-Means Clustering pada situs IMDb dengan 3 metode untuk penentuan cluster optimum dan memilih metode yang tepat untuk menentukan jumlah cluster terbaik yang akan digunakan untuk penelitian lebih lanjut.
+
+Row
+-----------------------------------------------------------------------
+
+### **Metode**
+- **Analisis Pengelompokan/Clustering** merupakan proses membagi data dalam suatu himpunan ke dalam beberapa kelompok yang kesamaan datanya dalam suatu kelompok lebih besar daripada kesamaan data tersebut dengan data dalam kelompok lain.
+- **Metode Elbow** merupakan suatu metode yang digunakan untuk menghasilkan informasi dalam menentukan jumlah cluster terbaik dengan cara melihat persentase hasil perbandingan antara jumlah cluster yang akan membentuk siku pada suatu titik.
+- Pendekatan **Metode Silhouette** digunakan untuk melihat kualitas dan kekuatan cluster, seberapa baik suatu objek ditempatkan dalam suatu cluster.Lebar siluet rata-rata yang tinggi menunjukkan pengelompokkan yang baik.  
+- **Metode Gap Statistic** membandingkan total variasi intracluster untuk nilai k yang berbeda dengan nilai yang diharapkan di bawah distribusi referensi nol dari data (yaitu distribusi tanpa pengelompokan yang jelas).
+- **K-means** merupakan suatu algoritma dalam pengelompokan secara partisi yang memisahkan data ke dalam kelompok yang berbeda-beda.
+
+Data
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Raw Data
+
+```{r}
+DT::datatable(data0, rownames = FALSE, extensions = 'FixedColumns', escape=TRUE,options= list(bPaginate = FALSE))
+```
+
+### Data Final dengan Metode Elbow Klustering K-means
+
+```{r}
+DT::datatable(Data1, rownames = FALSE, extensions = 'FixedColumns', escape=TRUE,options= list(bPaginate = FALSE))
+```
+
+
+Visualisasi data
+=======================================================================
+
+Column {.sidebar}
+-------------------------------------
+
+```{r}
+radioButtons("var", "Variabel:",
+               c("Runtime" = "run",
+                 "Rating" = "rate",
+                 "Votes" = "vote"))
+selectInput("n_breaks", label = "Number of bins:",
+            choices = c(10, 20, 35, 50), selected = 20)
+
+sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+            min = 0.2, max = 2, value = 1, step = 0.2)
+```
+   
+Column
+-------------------------------------
+   
+### Histogram
+
+```{r}
+renderPlot({
+  var <- switch(input$var,
+                 run = Analisis$runtime,
+                 rate = Analisis$rating,
+                 vote = Analisis$votes)
+  hist(var, probability = TRUE, breaks = as.numeric(input$n_breaks))
+  
+  dens <- density(var, adjust = input$bw_adjust)
+  lines(dens, col = "blue")
+})
+```   
+
+### Boxplot
+
+```{r}
+renderPlot({
+  var <- switch(input$var,
+                 run = Analisis$runtime,
+                 rate = Analisis$rating,
+                 vote = Analisis$votes)
+ boxplot(var,
+         xlab = "Index",
+         ylab = "Variabel",
+         col = "orange",
+         border = "brown",
+         horizontal = TRUE,
+         notch = TRUE
+)
+})
+```
+
+### Boxplots for each Genre
+
+```{r}
+renderPlot({
+  var <- switch(input$var,
+                 run = data0$runtime,
+                 rate = data0$rating,
+                 vote = data0$votes)
+ boxplot(var~genre,
+         data=data0,
+         xlab="Genre",
+         ylab="Variabel",
+         col="orange",
+         border="brown"
+         )
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Summary Runtime
+
+```{r}
+summary(Analisis$runtime)
+```   
+
+### Summary Rating
+
+```{r}
+summary(Analisis$rating)
+```   
+
+### Summary Votes
+
+```{r}
+summary(Analisis$votes)
+```   
+
+Clustering K-Means
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Metode Elbow
+
+```{r}
+data4=scale(Analisis)
+fviz_nbclust(data4,kmeans,method="wss")+
+  geom_vline(xintercept = 3, linetype = 2)
+
+clusters=kmeans(data4,centers = 3,nstart = 25)
+fviz_cluster(clusters,geom = "point",data = data4, ggtheme = theme_minimal())
+```
+
+K Means dengan K=3
+
+### Metode *Silhouette*
+
+```{r}
+data4=scale(Analisis)
+fviz_nbclust(data4,kmeans,method="silhouette")
+
+clusters=kmeans(data4,centers = 10,nstart = 25)
+fviz_cluster(clusters,geom = "point",data = data4, ggtheme = theme_minimal())
+```
+
+K Means dengan K=10
+
+### Metode *Gap Statistic*
+
+```{r}
+data4=scale(Analisis)
+gap_stat =clusGap(data4, FUN=kmeans, nstart = 25,K.max = 10)
+fviz_gap_stat(gap_stat)
+
+clusters=kmeans(data4,centers = 1,nstart = 25)
+fviz_cluster(clusters,geom = "point",data = data4, ggtheme = theme_minimal())
+```
+
+K Means dengan K=1
